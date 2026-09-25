@@ -58,7 +58,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+          # Removed cache: 'pip' to prevent failure when requirements.txt does not exist yet
 
       - name: Install Dependencies
         shell: pwsh
