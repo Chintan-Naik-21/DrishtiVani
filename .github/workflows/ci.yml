@@ -27,19 +27,47 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          # Cache will automatically activate once pnpm-lock.yaml is committed
+          cache: ${{ hashFiles('pnpm-lock.yaml') != '' && 'pnpm' || '' }}
 
       - name: Install Dependencies
         shell: pwsh
-        run: pnpm install --frozen-lockfile
+        run: |
+          if (Test-Path "pnpm-lock.yaml") {
+            pnpm install --frozen-lockfile
+          } elseif (Test-Path "package.json") {
+            pnpm install
+          } else {
+            Write-Host "No package.json or pnpm-lock.yaml found yet. Skipping dependency install."
+          }
 
       - name: Check TypeScript & Linting
         shell: pwsh
-        run: pnpm run lint
+        run: |
+          if (Test-Path "package.json") {
+            $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
+            if ($pkg.scripts.lint) {
+              pnpm run lint
+            } else {
+              Write-Host "No lint script defined in package.json. Skipping."
+            }
+          } else {
+            Write-Host "No package.json found. Skipping linting."
+          }
 
       - name: Build Applications
         shell: pwsh
-        run: pnpm run build
+        run: |
+          if (Test-Path "package.json") {
+            $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
+            if ($pkg.scripts.build) {
+              pnpm run build
+            } else {
+              Write-Host "No build script defined in package.json. Skipping."
+            }
+          } else {
+            Write-Host "No package.json found. Skipping build."
+          }
         env:
           NEXT_PUBLIC_API_URL: "http://localhost:8000"
 
@@ -58,7 +86,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          # Removed cache: 'pip' to prevent failure when requirements.txt does not exist yet
+          cache: ${{ hashFiles('requirements.txt') != '' && 'pip' || '' }}
 
       - name: Install Dependencies
         shell: pwsh
@@ -70,11 +98,21 @@ jobs:
       - name: Lint with Flake8
         shell: pwsh
         run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          $pyFiles = Get-ChildItem -Filter *.py -Recurse -File -Exclude .git
+          if ($pyFiles) {
+            flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+            flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          } else {
+            Write-Host "No Python files found yet. Skipping Flake8 linting."
+          }
 
       - name: Run Tests with Pytest
         shell: pwsh
         run: |
-          pytest -v
+          $testFiles = Get-ChildItem -Filter test_*.py -Recurse -File -Exclude .git
+          if ($testFiles -or (Test-Path "tests")) {
+            pytest -v
+          } else {
+            Write-Host "No test files found yet. Skipping pytest."
+          }
         continue-on-error: true
