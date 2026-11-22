@@ -158,3 +158,20 @@ venv.bak/
 htmlcov/
 *.sqlite3
 
+# Ultralytics & Model Weights
+.yolo/
+*.pt
+runs/
+
+# DrishtiVani Generated Test Outputs
+output_annotated*.png
+output_netlist.cir
+output_node_tree.json
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+
